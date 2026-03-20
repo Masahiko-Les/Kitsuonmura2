@@ -6,7 +6,6 @@ import {
   clearAgeConfirmation,
   clearTermsAcceptance,
   getConsentState,
-  SUPPORT_URL,
   TERMS_URL,
 } from '../lib/consent';
 import { hasFirebaseConfig } from '../lib/firebase';
@@ -68,9 +67,13 @@ export function AccountScreen() {
               setIsSaving(true);
               setError(null);
               await deleteAccount();
-              await loadProfile();
             } catch (deleteError) {
-              setError((deleteError as Error).message);
+              const message = (deleteError as Error).message;
+              setError(
+                message.includes('auth/requires-recent-login')
+                  ? 'セキュリティ保護のため再ログインが必要です。いったんログアウトして再ログイン後に、もう一度アカウント削除を実行してください。'
+                  : message,
+              );
             } finally {
               setIsSaving(false);
             }
@@ -181,16 +184,6 @@ export function AccountScreen() {
         </Pressable>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.label}>サポート</Text>
-        <Text style={styles.value}>kitsuon.mura.app@gmail.com</Text>
-        <Text style={styles.meta}>
-          通報は原則24時間以内に確認し、必要に応じて投稿の削除/非表示、ユーザーの利用停止（ban）等の対応を行います
-        </Text>
-        <Pressable style={styles.secondaryButton} onPress={() => void Linking.openURL(SUPPORT_URL)}>
-          <Text style={styles.secondaryButtonText}>サポートページを開く</Text>
-        </Pressable>
-      </View>
       <View style={styles.card}>
         <Text style={styles.label}>ログアウト</Text>
         <Text style={styles.meta}>この端末のログイン状態を解除します。</Text>

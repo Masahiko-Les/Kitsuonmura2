@@ -11,6 +11,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { acceptTerms, confirmAge, getConsentState } from './src/lib/consent';
 import { hasFirebaseConfig, requireAuth } from './src/lib/firebase';
 import { AccountScreen } from './src/screens/AccountScreen';
+import { AboutVillageScreen } from './src/screens/AboutVillageScreen';
 import { AgeGateScreen } from './src/screens/AgeGateScreen';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
@@ -25,6 +26,7 @@ type RootStackParamList = {
 
 type MainTabParamList = {
   Home: undefined;
+  AboutVillage: undefined;
   Account: undefined;
 };
 
@@ -78,11 +80,20 @@ function MainTabs() {
       }}
     >
       <Tab.Screen
+        name="AboutVillage"
+        component={AboutVillageScreen}
+        options={{
+          title: '吃音村',
+          tabBarLabel: '吃音村',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>🗺️</Text>,
+        }}
+      />
+      <Tab.Screen
         name="Home"
         component={HomeScreen}
         options={{
-          title: '吃音村広場',
-          tabBarLabel: '吃音村広場',
+          title: '広場',
+          tabBarLabel: '広場',
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>🌳</Text>,
         }}
       />
@@ -124,8 +135,12 @@ export default function App() {
     }
 
     const unsubscribe = onAuthStateChanged(requireAuth(), (user) => {
-      setIsSignedIn(Boolean(user));
-      setIsAuthReady(true);
+      void (async () => {
+        const nextConsentState = await getConsentState();
+        setConsentState(nextConsentState);
+        setIsSignedIn(Boolean(user));
+        setIsAuthReady(true);
+      })();
     });
 
     return unsubscribe;

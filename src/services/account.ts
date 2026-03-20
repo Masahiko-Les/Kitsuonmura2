@@ -23,7 +23,9 @@ import { AGE_CONFIRMED_KEY, TERMS_ACCEPTED_KEY } from '../lib/consent';
 import { hasFirebaseConfig, requireAuth, requireFirestore } from '../lib/firebase';
 
 const ACCOUNT_ID_KEY = 'deviceAccountId_v1';
-const NICKNAME_KEY = 'nickname_v1';
+const GUEST_NICKNAME_KEY = 'nickname_guest_v1';
+const LEGACY_NICKNAME_KEY = 'nickname_v1';
+const NICKNAME_BY_EMAIL_PREFIX = 'nickname_email_v1_';
 const DEFAULT_NICKNAME = 'ゲスト';
 
 export type BanStatus = {
@@ -66,9 +68,19 @@ function readMillis(value: unknown): number | null {
   return null;
 }
 
-async function readLocalNickname(): Promise<string> {
-  const nickname = await AsyncStorage.getItem(NICKNAME_KEY);
+function nicknameKeyByEmail(email: string): string {
+  return `${NICKNAME_BY_EMAIL_PREFIX}${normalizeEmail(email)}`;
+}
+
+async function readLocalNickname(email?: string | null): Promise<string> {
+  const storageKey = email ? nicknameKeyByEmail(email) : GUEST_NICKNAME_KEY;
+  const nickname = await AsyncStorage.getItem(storageKey);
   return nickname?.trim() || DEFAULT_NICKNAME;
+}
+
+async function writeLocalNickname(nickname: string, email?: string | null): Promise<void> {
+  const storageKey = email ? nicknameKeyByEmail(email) : GUEST_NICKNAME_KEY;
+  await AsyncStorage.setItem(storageKey, nickname.trim());
 }
 
 function normalizeBanStatus(data: Record<string, unknown> | undefined): BanStatus {
@@ -183,7 +195,9 @@ export async function getOrCreateAccountId(): Promise<string> {
 }
 
 export async function hasRegisteredNickname(): Promise<boolean> {
-  const nickname = await AsyncStorage.getItem(NICKNAME_KEY);
+  const user = hasFirebaseConfig ? requireAuth().currentUser : null;
+  const storageKey = user?.email ? nicknameKeyByEmail(user.email) : GUEST_NICKNAME_KEY;
+  const nickname = await AsyncStorage.getItem(storageKey);
   return typeof nickname === 'string' && nickname.trim().length > 0;
 }
 
@@ -215,6 +229,8 @@ function mapAuthErrorMessage(error: unknown): string {
       return '試行回数が上限に達しました。時間をおいて再試行してください。';
     case 'auth/network-request-failed':
       return 'ネットワークエラーが発生しました。通信環境を確認してください。';
+    case 'auth/requires-recent-login':
+      return 'セキュリティ保護のため再ログインが必要です。いったんログアウトして再ログイン後に、もう一度アカウント削除を実行してください。';
     default:
       return (error as Error)?.message ?? '認証に失敗しました。';
   }
@@ -316,9 +332,8 @@ export function requireAuthenticatedUser(): User {
 }
 
 export async function getAccountProfile(): Promise<AccountProfile> {
-  const localNickname = await readLocalNickname();
-
   if (!hasFirebaseConfig) {
+    const localNickname = await readLocalNickname();
     const accountId = await getOrCreateAccountId();
     return {
       accountId,
@@ -334,6 +349,7 @@ export async function getAccountProfile(): Promise<AccountProfile> {
   }
 
   const user = requireAuthenticatedUser();
+  const localNickname = await readLocalNickname(user.email);
   const accountId = user.uid;
   const db = requireFirestore();
   const accountRef = doc(db, 'users', accountId);
@@ -360,7 +376,7 @@ export async function getAccountProfile(): Promise<AccountProfile> {
   const nickname = remoteNickname || localNickname;
 
   if (nickname !== localNickname) {
-    await AsyncStorage.setItem(NICKNAME_KEY, nickname);
+    await writeLocalNickname(nickname, user.email);
   }
 
   return {
@@ -379,13 +395,13 @@ export async function updateNickname(nickname: string): Promise<void> {
     throw new Error('ニックネームを入力してください。');
   }
 
-  await AsyncStorage.setItem(NICKNAME_KEY, trimmed);
-
   if (!hasFirebaseConfig) {
+    await writeLocalNickname(trimmed);
     return;
   }
 
   const user = requireAuthenticatedUser();
+  await writeLocalNickname(trimmed, user.email);
   const accountId = user.uid;
   const db = requireFirestore();
   await setDoc(
@@ -420,23 +436,30 @@ export async function assertUserNotBanned(uid: string): Promise<void> {
 }
 
 export async function deleteAccount(): Promise<void> {
+  const currentEmail = hasFirebaseConfig ? requireAuth().currentUser?.email : null;
+
   if (hasFirebaseConfig) {
     const user = requireAuthenticatedUser();
     const accountId = user.uid;
     const db = requireFirestore();
-    await hideOwnPosts(accountId);
-    await Promise.all([
-      deleteUserSubcollection(accountId, 'hiddenPosts'),
-      deleteUserSubcollection(accountId, 'blockedUsers'),
-    ]);
-    await deleteDoc(doc(db, 'users', accountId));
-    await user.delete();
+    try {
+      await hideOwnPosts(accountId);
+      await Promise.all([
+        deleteUserSubcollection(accountId, 'hiddenPosts'),
+        deleteUserSubcollection(accountId, 'blockedUsers'),
+      ]);
+      await deleteDoc(doc(db, 'users', accountId));
+      await user.delete();
+    } catch (error) {
+      throw new Error(mapAuthErrorMessage(error));
+    }
   }
 
-  await AsyncStorage.multiRemove([
-    ACCOUNT_ID_KEY,
-    NICKNAME_KEY,
-    AGE_CONFIRMED_KEY,
-    TERMS_ACCEPTED_KEY,
-  ]);
+  const keysToRemove = [ACCOUNT_ID_KEY, GUEST_NICKNAME_KEY, LEGACY_NICKNAME_KEY, AGE_CONFIRMED_KEY, TERMS_ACCEPTED_KEY];
+
+  if (currentEmail) {
+    keysToRemove.push(nicknameKeyByEmail(currentEmail));
+  }
+
+  await AsyncStorage.multiRemove(keysToRemove);
 }
