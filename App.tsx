@@ -8,7 +8,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { acceptTerms, confirmAge, getConsentState } from './src/lib/consent';
+import { acceptTerms, confirmAge, getConsentState, resetConsent } from './src/lib/consent';
 import { hasFirebaseConfig, requireAuth } from './src/lib/firebase';
 import { AccountScreen } from './src/screens/AccountScreen';
 import { AboutVillageScreen } from './src/screens/AboutVillageScreen';
@@ -136,8 +136,14 @@ export default function App() {
 
     const unsubscribe = onAuthStateChanged(requireAuth(), (user) => {
       void (async () => {
-        const nextConsentState = await getConsentState();
-        setConsentState(nextConsentState);
+        if (!user) {
+          // サインアウト時は同意状態をリセット。次のユーザーが必ず年齢確認・利用規約に同意する。
+          await resetConsent();
+          setConsentState({ ageConfirmed: false, termsAccepted: false });
+        } else {
+          const nextConsentState = await getConsentState();
+          setConsentState(nextConsentState);
+        }
         setIsSignedIn(Boolean(user));
         setIsAuthReady(true);
       })();
@@ -196,20 +202,20 @@ export default function App() {
       <SafeAreaProvider>
         <NavigationContainer theme={navigationTheme}>
           <Stack.Navigator screenOptions={{ headerShown: false }}>
-            {!consentState.ageConfirmed ? (
+            {!isSignedIn ? (
+              <Stack.Screen name="AuthGate" component={AuthScreen} />
+            ) : null}
+            {isSignedIn && !consentState.ageConfirmed ? (
               <Stack.Screen name="AgeGate">
                 {() => <AgeGateScreen onConfirm={handleConfirmAge} />}
               </Stack.Screen>
             ) : null}
-            {consentState.ageConfirmed && !consentState.termsAccepted ? (
+            {isSignedIn && consentState.ageConfirmed && !consentState.termsAccepted ? (
               <Stack.Screen name="TermsGate">
                 {() => <TermsGateScreen onAccept={handleAcceptTerms} />}
               </Stack.Screen>
             ) : null}
-            {consentState.ageConfirmed && consentState.termsAccepted && !isSignedIn ? (
-              <Stack.Screen name="AuthGate" component={AuthScreen} />
-            ) : null}
-            {consentState.ageConfirmed && consentState.termsAccepted && isSignedIn ? (
+            {isSignedIn && consentState.ageConfirmed && consentState.termsAccepted ? (
               <Stack.Screen name="MainTabs" component={MainTabs} />
             ) : null}
           </Stack.Navigator>
