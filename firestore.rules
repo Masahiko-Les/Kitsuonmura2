@@ -206,5 +206,30 @@ service cloud.firestore {
       allow read: if signedIn() && request.auth.uid == uid;
       allow write: if false;
     }
+
+    match /mail/{mailId} {
+      allow read, update, delete: if false;
+      allow create: if isNotBanned()
+        && request.resource.data.keys().hasOnly(['to', 'message', 'createdAt', 'meta'])
+        && request.resource.data.to is list
+        && request.resource.data.to.size() == 1
+        && request.resource.data.to[0] is string
+        && request.resource.data.to[0] == 'kitsuon.mura.app@gmail.com'
+        && request.resource.data.message is map
+        && request.resource.data.message.keys().hasOnly(['subject', 'text'])
+        && request.resource.data.message.subject is string
+        && request.resource.data.message.subject.size() > 0
+        && request.resource.data.message.text is string
+        && request.resource.data.message.text.size() > 0
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.meta is map
+        && request.resource.data.meta.keys().hasOnly(['type', 'postId', 'reportedBy'])
+        && request.resource.data.meta.type is string
+        && request.resource.data.meta.type == 'report_created'
+        && request.resource.data.meta.postId is string
+        && request.resource.data.meta.postId.size() > 0
+        && request.resource.data.meta.reportedBy is string
+        && request.resource.data.meta.reportedBy == request.auth.uid;
+    }
   }
 }

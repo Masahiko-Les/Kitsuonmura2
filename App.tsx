@@ -20,6 +20,7 @@ import { TermsGateScreen } from './src/screens/TermsGateScreen';
 type RootStackParamList = {
   AgeGate: undefined;
   TermsGate: undefined;
+  TermsAgreement: undefined;
   AuthGate: undefined;
   MainTabs: undefined;
 };
@@ -217,6 +218,18 @@ export default function App() {
             ) : null}
             {isSignedIn && consentState.ageConfirmed && consentState.termsAccepted ? (
               <Stack.Screen name="MainTabs" component={MainTabs} />
+            ) : null}
+            {isSignedIn && consentState.ageConfirmed ? (
+              <Stack.Screen name="TermsAgreement">
+                {({ navigation }) => (
+                  <TermsGateScreen
+                    onAccept={async () => {
+                      await handleAcceptTerms();
+                      navigation.goBack();
+                    }}
+                  />
+                )}
+              </Stack.Screen>
             ) : null}
           </Stack.Navigator>
           <StatusBar style="dark" />

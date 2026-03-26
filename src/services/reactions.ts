@@ -77,7 +77,6 @@ export async function toggleReport(
     }
 
     const nextReportCount = currentReportCount + 1;
-
     transaction.set(reportRef, {
       uid,
       reason,

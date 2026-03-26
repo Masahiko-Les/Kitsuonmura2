@@ -15,7 +15,12 @@ export function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
       <View style={styles.card}>
         <Text style={styles.eyebrow}>Step 2</Text>
         <Text style={styles.title}>利用規約の同意</Text>
-        <Text style={styles.body}>投稿・いいね・通報を利用するには利用規約への同意が必要です</Text>
+        <Text style={styles.body}>
+          吃音村では、不適切コンテンツ、嫌がらせ、差別、暴力的表現、性的搾取、違法行為を禁止しています。{"\n"}
+          これらに対してはゼロトレランスで対応し、違反が確認された場合は投稿削除やアカウント停止を行うことがあります。{"\n"}
+          通報された内容は原則24時間以内に確認し、必要な対応を行います。{"\n"}
+          「同意する」を押すことで、利用規約に同意したものとみなされます。
+        </Text>
 
         <Pressable style={styles.secondaryButton} onPress={() => void Linking.openURL(TERMS_URL)}>
           <Text style={styles.secondaryButtonText}>利用規約を読む</Text>
@@ -33,7 +38,7 @@ export function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
           onPress={() => void onAccept()}
           disabled={!isChecked}
         >
-          <Text style={styles.primaryButtonText}>同意して続ける</Text>
+          <Text style={styles.primaryButtonText}>同意する</Text>
         </Pressable>
       </View>
     </View>

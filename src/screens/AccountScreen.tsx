@@ -1,8 +1,8 @@
+import { useNavigation } from '@react-navigation/native';
 import { useEffect, useState } from 'react';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import {
-  acceptTerms,
   clearAgeConfirmation,
   clearTermsAcceptance,
   getConsentState,
@@ -18,6 +18,7 @@ import {
 } from '../services/account';
 
 export function AccountScreen() {
+  const navigation = useNavigation();
   const [profile, setProfile] = useState<AccountProfile | null>(null);
   const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -41,6 +42,14 @@ export function AccountScreen() {
   useEffect(() => {
     void loadProfile();
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      void loadProfile();
+    });
+
+    return unsubscribe;
+  }, [navigation]);
 
   const handleSave = async () => {
     try {
@@ -112,12 +121,18 @@ export function AccountScreen() {
     try {
       setIsSaving(true);
       setError(null);
+
       if (termsAccepted) {
         await clearTermsAcceptance();
         setTermsAccepted(false);
       } else {
-        await acceptTerms();
-        setTermsAccepted(true);
+        const parentNavigation = navigation.getParent();
+
+        if (!parentNavigation) {
+          throw new Error('利用規約同意画面に遷移できませんでした。');
+        }
+
+        parentNavigation.navigate('TermsAgreement');
       }
     } catch (resetError) {
       setError((resetError as Error).message);
