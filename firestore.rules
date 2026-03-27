@@ -9,6 +9,11 @@ service cloud.firestore {
       return signedIn() && !exists(/databases/$(database)/documents/bannedUsers/$(request.auth.uid));
     }
 
+    function hasConsentedToTerms() {
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return userDoc.data.ageConfirmed == true && userDoc.data.termsAccepted == true;
+    }
+
     function postKeysAreValidOnCreate() {
       return request.resource.data.keys().hasOnly([
         'text',
@@ -161,7 +166,7 @@ service cloud.firestore {
     match /posts/{postId} {
       allow get: if signedIn() && resource.data.isHidden != true;
       allow list: if signedIn();
-      allow create: if isNotBanned() && postCreateIsValid();
+      allow create: if isNotBanned() && hasConsentedToTerms() && postCreateIsValid();
       allow update: if isNotBanned()
         && (likeToggleUpdate(postId) || reportToggleUpdate(postId) || ownerHideUpdate());
       allow delete: if false;

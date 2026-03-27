@@ -8,6 +8,7 @@ type TermsGateScreenProps = {
 };
 
 export function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
+  const [hasReadTerms, setHasReadTerms] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
 
   return (
@@ -22,15 +23,26 @@ export function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
           「同意する」を押すことで、利用規約に同意したものとみなされます。
         </Text>
 
-        <Pressable style={styles.secondaryButton} onPress={() => void Linking.openURL(TERMS_URL)}>
+        <Pressable
+          style={styles.secondaryButton}
+          onPress={() => {
+            setHasReadTerms(true);
+            void Linking.openURL(TERMS_URL);
+          }}
+        >
           <Text style={styles.secondaryButtonText}>利用規約を読む</Text>
         </Pressable>
 
-        <Pressable style={styles.checkRow} onPress={() => setIsChecked((current) => !current)}>
-          <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
+        <Pressable
+          style={[styles.checkRow, !hasReadTerms && styles.checkRowDisabled]}
+          onPress={() => hasReadTerms && setIsChecked((current) => !current)}
+        >
+          <View style={[styles.checkbox, isChecked && styles.checkboxChecked, !hasReadTerms && styles.checkboxDisabled]}>
             {isChecked ? <Text style={styles.checkmark}>✓</Text> : null}
           </View>
-          <Text style={styles.checkLabel}>利用規約に同意します</Text>
+          <Text style={[styles.checkLabel, !hasReadTerms && styles.checkLabelDisabled]}>
+            利用規約に同意します{!hasReadTerms ? '（先に利用規約をお読みください）' : ''}
+          </Text>
         </Pressable>
 
         <Pressable
@@ -86,6 +98,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
+  checkRowDisabled: {
+    opacity: 0.4,
+  },
   checkbox: {
     width: 28,
     height: 28,
@@ -100,6 +115,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#203417',
     borderColor: '#203417',
   },
+  checkboxDisabled: {
+    borderColor: '#b0b0b0',
+    backgroundColor: '#e8e8e8',
+  },
   checkmark: {
     color: '#f7fff2',
     fontSize: 16,
@@ -110,6 +129,10 @@ const styles = StyleSheet.create({
     color: '#2a3d1e',
     fontSize: 16,
     fontWeight: '600',
+  },
+  checkLabelDisabled: {
+    color: '#8a8a8a',
+    fontSize: 14,
   },
   secondaryButton: {
     borderWidth: 1,

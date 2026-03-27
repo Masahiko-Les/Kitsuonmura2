@@ -17,6 +17,7 @@ import {
 
 import { assertUserNotBanned } from './account';
 import { requireFirestore } from '../lib/firebase';
+import { getConsentState } from '../lib/consent';
 
 export type AuthorSummary = {
   uid: string;
@@ -106,6 +107,12 @@ export async function createPost(content: string, author: AuthorSummary): Promis
 
   if (!trimmed) {
     throw new Error('投稿内容を入力してください。');
+  }
+
+  // EULA同意チェック（必須）
+  const consentState = await getConsentState();
+  if (!consentState.ageConfirmed || !consentState.termsAccepted) {
+    throw new Error('投稿には年齢確認と利用規約同意が必要です。');
   }
 
   await assertUserNotBanned(author.uid);
